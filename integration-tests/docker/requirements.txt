@@ -1,2 +1,13 @@
+# Consul client
 python-consul2==0.1.5
-robotframework-requests==0.5.0
+
+# HTTP client
+requests>=2.28.0
+
+# pytest and BDD
+pytest>=8.0.0
+pytest-bdd>=7.3.0
+pytest-timeout>=2.2.0
+
+# Allure reporting
+allure-pytest>=2.13.0
