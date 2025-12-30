@@ -109,3 +109,4 @@ def granular_backup_removed_from_s3(s3_client, test_context):
     assert not exists, f"Granular backup {backup_id} still exists in S3"
     print(f"\n✅ Granular backup removed from S3: {backup_id}")
 
+

@@ -47,3 +47,4 @@ Feature: Consul Prometheus Alerts
         Then alert "ConsulIsDownAlarm" should become pending
         And alert "ConsulIsDownAlarm" should eventually become inactive
 
+

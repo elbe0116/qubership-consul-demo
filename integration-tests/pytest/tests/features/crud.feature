@@ -70,3 +70,4 @@ Feature: Consul Key-Value Store CRUD Operations
         When I delete test data under path from Consul
         Then data under path should be deleted successfully
 
+

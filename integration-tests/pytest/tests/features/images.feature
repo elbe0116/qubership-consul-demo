@@ -27,3 +27,4 @@ Feature: Consul Image Verification
         When I check each monitored resource image
         Then all image tags should match expected versions
 
+

@@ -50,3 +50,4 @@ Feature: Consul Backup with S3 Storage
         When I evict backup by ID
         Then granular backup should be removed from S3 storage
 
+

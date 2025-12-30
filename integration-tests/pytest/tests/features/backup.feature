@@ -57,3 +57,4 @@ Feature: Consul Backup and Restore
         When I try to create backup without auth
         Then response status code should be 401
 
+

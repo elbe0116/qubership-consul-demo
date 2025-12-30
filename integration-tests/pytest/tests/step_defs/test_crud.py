@@ -173,3 +173,4 @@ def path_data_deleted_successfully(test_context):
     """Verify path data was deleted."""
     assert test_context["delete_result"] is True, "Failed to delete path data"
 
+

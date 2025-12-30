@@ -174,3 +174,4 @@ def crud_works_after_failover(consul, test_context):
     consul.delete_data(test_context["test_key"])
     print("\n✅ CRUD operations work after failover")
 
+

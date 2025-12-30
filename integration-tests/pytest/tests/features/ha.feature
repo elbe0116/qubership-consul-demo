@@ -42,3 +42,4 @@ Feature: Consul High Availability
         Then new leader should be elected
         And CRUD operations should work after failover
 
+

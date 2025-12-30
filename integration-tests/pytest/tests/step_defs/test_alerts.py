@@ -158,3 +158,4 @@ def _wait_for_leader(consul):
         time.sleep(ALERT_RETRY_INTERVAL)
     pytest.fail(f"Leader not available after {ALERT_RETRY_TIME}s")
 
+

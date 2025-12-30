@@ -253,3 +253,4 @@ class ConsulLibrary:
         except Exception:
             return False
 
+
