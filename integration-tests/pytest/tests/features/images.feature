@@ -28,3 +28,4 @@ Feature: Consul Image Verification
         Then all image tags should match expected versions
 
 
+

@@ -175,3 +175,4 @@ def crud_works_after_failover(consul, test_context):
     print("\n✅ CRUD operations work after failover")
 
 
+

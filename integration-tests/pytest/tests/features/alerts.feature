@@ -48,3 +48,4 @@ Feature: Consul Prometheus Alerts
         And alert "ConsulIsDownAlarm" should eventually become inactive
 
 
+
