@@ -1,0 +1,69 @@
+name: Install Consul
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Environment Name"
+        required: false
+        default: "dev"
+
+jobs:
+  Install-Consul:
+    environment: "${{github.event.inputs.environment}}"
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Listing downloaded files
+        run: |
+          pwd
+          ls -R ./
+
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'v1.32.0'
+
+      - name: Setup Helm
+        uses: azure/setup-helm@v3
+
+      - name: Verify tools
+        run: |
+          kubectl version --client
+          helm version
+          aws --version
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ vars.AWS_REGION || 'us-east-1' }}
+
+      - name: Configure kubeconfig for EKS
+        run: |
+          aws eks update-kubeconfig --region ${{ vars.AWS_REGION || 'us-east-1' }} --name ${{ vars.AWS_CLUSTERNAME }}
+
+      - name: Verify cluster access
+        run: kubectl get nodes
+
+      - name: Install Consul
+        run: |
+          echo "Namespace to install: ${{ vars.CONSUL_INSTALL_NAMESPACE }}"
+          helm install --namespace=${{ vars.CONSUL_INSTALL_NAMESPACE }} \
+            --create-namespace \
+            -f ./charts/helm/consul-service/values.yaml \
+            consul-service ./charts/helm/consul-service \
+            --set integrationTests.atpStorage.username=${{ secrets.ATP_STORAGE_USERNAME }} \
+            --set integrationTests.atpStorage.password=${{ secrets.ATP_STORAGE_PASSWORD }} \
+            --set integrationTests.atpStorage.provider=s3 \
+            --set integrationTests.atpStorage.serverUrl=${{ vars.ATP_STORAGE_SERVER_URL }} \
+            --set integrationTests.atpStorage.serverUiUrl=${{ vars.ATP_STORAGE_SERVER_UI_URL }} \
+            --set integrationTests.atpStorage.bucket=${{ vars.ATP_STORAGE_BUCKET }} \
+            --set integrationTests.atpStorage.region=${{ vars.AWS_REGION || 'us-east-1' }} \
+            --set integrationTests.atpReportViewUiUrl=${{ vars.ATP_REPORT_VIEW_UI_URL }} \
+            --set integrationTests.environmentName=${{ vars.ENVIRONMENT_NAME || github.event.inputs.environment }}
+
