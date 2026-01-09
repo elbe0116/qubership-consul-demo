@@ -1,4 +1,4 @@
-FROM ghcr.io/elbe0116/qubership-docker-integration-tests:PSUPATPOS-63
+FROM ghcr.io/elbe0116/qubership-docker-integration-tests:pytest
 
 ENV ROBOT_OUTPUT=/opt/robot/output \
     SERVICE_CHECKER_SCRIPT=${ROBOT_HOME}/consul_pods_checker.py
@@ -12,7 +12,6 @@ RUN mkdir -p ${ROBOT_OUTPUT}
 
 COPY integration-tests/docker/requirements.txt ${ROBOT_HOME}/requirements.txt
 COPY integration-tests/docker/consul_pods_checker.py ${ROBOT_HOME}/consul_pods_checker.py
-COPY integration-tests/robot ${ROBOT_HOME}
 
 
 RUN set -x \
