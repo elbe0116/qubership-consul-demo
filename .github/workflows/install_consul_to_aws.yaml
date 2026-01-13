@@ -52,6 +52,8 @@ jobs:
 
       - name: Install Consul
         run: |
+          echo "Clean previously installed Consul"
+          kubectl delete ns ${{ vars.CONSUL_INSTALL_NAMESPACE }}
           echo "Namespace to install: ${{ vars.CONSUL_INSTALL_NAMESPACE }}"
           helm install --namespace=${{ vars.CONSUL_INSTALL_NAMESPACE }} \
             --create-namespace \
