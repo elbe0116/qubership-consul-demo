@@ -1,0 +1,143 @@
+name: Install Consul
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Environment Name"
+        required: false
+        default: "dev"
+
+jobs:
+  Install-Consul:
+    environment: "${{github.event.inputs.environment}}"
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Listing downloaded files
+        run: |
+          pwd
+          ls -R ./
+
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'v1.32.0'
+
+      - name: Setup Helm
+        uses: azure/setup-helm@v3
+
+      - name: Verify tools
+        run: |
+          kubectl version --client
+          helm version
+          aws --version
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ vars.AWS_REGION || 'us-east-1' }}
+
+      - name: Configure kubeconfig for EKS
+        run: |
+          aws eks update-kubeconfig --region ${{ vars.AWS_REGION || 'us-east-1' }} --name ${{ vars.AWS_CLUSTERNAME }}
+
+      - name: Verify cluster access
+        run: kubectl get nodes
+
+      - name: Install Consul
+        run: |
+          echo "Clean previously installed Consul"
+
+          # Same pattern as monitoring-operator AWS workflow: uninstall release first, then delete namespace
+          # without blocking on kubectl delete (finalizers can hang the default wait).
+          echo "Uninstalling Helm release..."
+          helm uninstall consul-service -n ${{ vars.CONSUL_INSTALL_NAMESPACE }} --wait --timeout=120s || true
+
+          echo "Deleting namespace..."
+          kubectl delete ns ${{ vars.CONSUL_INSTALL_NAMESPACE }} --timeout=180s --wait=false || true
+
+          echo "Waiting for namespace deletion to complete..."
+          for i in {1..90}; do
+            if ! kubectl get ns ${{ vars.CONSUL_INSTALL_NAMESPACE }} 2>/dev/null; then
+              echo "Namespace deleted successfully"
+              break
+            fi
+
+            NS_STATUS=$(kubectl get ns ${{ vars.CONSUL_INSTALL_NAMESPACE }} -o jsonpath='{.status.phase}' 2>/dev/null || echo "")
+            echo "Waiting... ($i/90) - Namespace status: $NS_STATUS"
+
+            if [ "$i" -gt 30 ] && [ "$NS_STATUS" == "Terminating" ]; then
+              echo "Namespace stuck in Terminating state, attempting to force delete..."
+
+              kubectl api-resources --verbs=list --namespaced -o name | xargs -n 1 kubectl get --show-kind --ignore-not-found -n ${{ vars.CONSUL_INSTALL_NAMESPACE }} -o name | \
+                xargs -n 1 kubectl patch -n ${{ vars.CONSUL_INSTALL_NAMESPACE }} -p '{"metadata":{"finalizers":[]}}' --type=merge 2>/dev/null || true
+
+              kubectl get ns ${{ vars.CONSUL_INSTALL_NAMESPACE }} -o json | \
+                jq '.spec.finalizers = []' | \
+                kubectl replace --raw "/api/v1/namespaces/${{ vars.CONSUL_INSTALL_NAMESPACE }}/finalize" -f - || true
+
+              sleep 5
+            fi
+
+            sleep 2
+          done
+
+          if kubectl get ns ${{ vars.CONSUL_INSTALL_NAMESPACE }} 2>/dev/null; then
+            echo "ERROR: Namespace still exists after timeout!"
+            kubectl get ns ${{ vars.CONSUL_INSTALL_NAMESPACE }} -o yaml
+            exit 1
+          fi
+
+          echo "Namespace to install: ${{ vars.CONSUL_INSTALL_NAMESPACE }}"
+          
+          # Build helm arguments dynamically (only add non-empty values)
+          HELM_ARGS=""
+          
+          # Secrets - S3 credentials for test results upload
+          [ -n "${{ secrets.S3_AWS_ACCESS_KEY_ID }}" ] && HELM_ARGS="$HELM_ARGS --set integrationTests.atpStorage.username=${{ secrets.S3_AWS_ACCESS_KEY_ID }}"
+          [ -n "${{ secrets.S3_AWS_SECRET_ACCESS_KEY }}" ] && HELM_ARGS="$HELM_ARGS --set integrationTests.atpStorage.password=${{ secrets.S3_AWS_SECRET_ACCESS_KEY }}"
+          
+          # Secrets - S3 credentials for backup daemon (same keys)
+          [ -n "${{ secrets.S3_AWS_ACCESS_KEY_ID }}" ] && HELM_ARGS="$HELM_ARGS --set backupDaemon.s3.keyId=${{ secrets.S3_AWS_ACCESS_KEY_ID }}"
+          [ -n "${{ secrets.S3_AWS_SECRET_ACCESS_KEY }}" ] && HELM_ARGS="$HELM_ARGS --set backupDaemon.s3.keySecret=${{ secrets.S3_AWS_SECRET_ACCESS_KEY }}"
+          
+          # Variables (only add if set, otherwise use values.yaml defaults)
+          [ -n "${{ vars.ATP_STORAGE_PROVIDER }}" ] && HELM_ARGS="$HELM_ARGS --set integrationTests.atpStorage.provider=${{ vars.ATP_STORAGE_PROVIDER }}"
+          [ -n "${{ vars.ATP_STORAGE_SERVER_URL }}" ] && HELM_ARGS="$HELM_ARGS --set integrationTests.atpStorage.serverUrl=${{ vars.ATP_STORAGE_SERVER_URL }}"
+          [ -n "${{ vars.ATP_STORAGE_SERVER_UI_URL }}" ] && HELM_ARGS="$HELM_ARGS --set integrationTests.atpStorage.serverUiUrl=${{ vars.ATP_STORAGE_SERVER_UI_URL }}"
+          [ -n "${{ vars.ATP_STORAGE_BUCKET }}" ] && HELM_ARGS="$HELM_ARGS --set integrationTests.atpStorage.bucket=${{ vars.ATP_STORAGE_BUCKET }}"
+          [ -n "${{ vars.AWS_REGION }}" ] && HELM_ARGS="$HELM_ARGS --set integrationTests.atpStorage.region=${{ vars.AWS_REGION }}"
+          [ -n "${{ vars.ATP_REPORT_VIEW_UI_URL }}" ] && HELM_ARGS="$HELM_ARGS --set integrationTests.atpReportViewUiUrl=${{ vars.ATP_REPORT_VIEW_UI_URL }}"
+          
+          # Environment name (use input or variable)
+          ENV_NAME="${{ vars.ENVIRONMENT_NAME }}"
+          [ -z "$ENV_NAME" ] && ENV_NAME="${{ github.event.inputs.environment }}"
+          [ -n "$ENV_NAME" ] && HELM_ARGS="$HELM_ARGS --set integrationTests.environmentName=$ENV_NAME"
+          
+          # MONITORED_IMAGES for consul_images test (AWS deployment)
+          # Test fixed to use ${parts}[-1] instead of ${parts[2]} - works with standard image format
+          cat > /tmp/monitored-images-values.yaml << 'EOF'
+          integrationTests:
+            monitoredImages: "statefulset consul-server consul hashicorp/consul:1.21.5,deployment consul-backup-daemon consul-backup-daemon ghcr.io/netcracker/qubership-consul-backup-daemon:main,deployment consul-acl-configurator-operator consul-acl-configurator-operator ghcr.io/netcracker/qubership-consul-acl-configurator:main,deployment consul-integration-tests-runner consul-integration-tests-runner ghcr.io/elbe0116/qubership-consul-integration-tests:PSUPATPOS-63"
+          EOF
+          HELM_ARGS="$HELM_ARGS -f /tmp/monitored-images-values.yaml"
+          
+          echo "Helm additional args: $HELM_ARGS"
+          
+          # Debug: show key values from values.yaml
+          echo "=== Debug: Key values ==="
+          grep -E "^\s*(enabled|prometheusUrl):" ./charts/helm/consul-service/values.yaml | head -20
+          echo "========================="
+          
+          helm install --namespace=${{ vars.CONSUL_INSTALL_NAMESPACE }} \
+            --create-namespace \
+            -f ./charts/helm/consul-service/values.yaml \
+            consul-service ./charts/helm/consul-service \
+            $HELM_ARGS
+
