@@ -147,16 +147,8 @@ spec:
               value: {{ .Values.integrationTests.atpReport.atpStorage.bucket | quote }}
             - name: ATP_STORAGE_REGION
               value: {{ .Values.integrationTests.atpReport.atpStorage.region | quote }}
-            - name: ATP_STORAGE_USERNAME
-              valueFrom:
-                secretKeyRef:
-                  name: {{ template "consul-integration-tests.name" . }}-atp-storage-secret
-                  key: atp-storage-username
-            - name: ATP_STORAGE_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: {{ template "consul-integration-tests.name" . }}-atp-storage-secret
-                  key: atp-storage-password
+            - name: INTEGRATION_TESTS_SECRETS_DIR
+              value: /mnt/secrets/env
             - name: ATP_REPORT_VIEW_UI_URL
               value: {{ .Values.integrationTests.atpReportViewUiUrl | quote }}
             {{- end }}
@@ -218,6 +210,11 @@ spec:
               mountPath: /consul/tls/ca/
               readOnly: true
             {{- end }}
+            {{- if .Values.integrationTests.atpReport.enabled }}
+            - name: atp-storage-secret
+              mountPath: /mnt/secrets/env
+              readOnly: true
+            {{- end }}
           terminationMessagePath: /dev/termination-log
           imagePullPolicy: Always
       volumes:
@@ -239,5 +236,15 @@ spec:
               - key: {{ default "tls.crt" .Values.global.tls.caCert.secretKey }}
               {{- end }}
                 path: tls.crt
+        {{- end }}
+        {{- if .Values.integrationTests.atpReport.enabled }}
+        - name: atp-storage-secret
+          secret:
+            secretName: {{ template "consul-integration-tests.name" . }}-atp-storage-secret
+            items:
+              - key: atp-storage-username
+                path: ATP_STORAGE_USERNAME
+              - key: atp-storage-password
+                path: ATP_STORAGE_PASSWORD
         {{- end }}
 {{- end }}
