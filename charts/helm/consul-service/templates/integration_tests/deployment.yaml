@@ -149,6 +149,16 @@ spec:
               value: {{ .Values.integrationTests.atpReport.atpStorage.region | quote }}
             - name: INTEGRATION_TESTS_SECRETS_DIR
               value: /mnt/secrets/env
+            - name: ATP_STORAGE_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ template "consul-integration-tests.name" . }}-atp-storage-secret
+                  key: atp-storage-username
+            - name: ATP_STORAGE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ template "consul-integration-tests.name" . }}-atp-storage-secret
+                  key: atp-storage-password
             - name: ATP_REPORT_VIEW_UI_URL
               value: {{ .Values.integrationTests.atpReportViewUiUrl | quote }}
             {{- end }}
@@ -241,6 +251,7 @@ spec:
         - name: atp-storage-secret
           secret:
             secretName: {{ template "consul-integration-tests.name" . }}-atp-storage-secret
+            defaultMode: 420
             items:
               - key: atp-storage-username
                 path: ATP_STORAGE_USERNAME
