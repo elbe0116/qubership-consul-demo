@@ -2420,7 +2420,7 @@ integrationTests:
       # S3 UI URL for browsing results (e.g., https://minio.example.com)
       serverUiUrl: "https://console.test.com"
       # S3 bucket name. If empty - S3 integration is disabled and results stay local
-      bucket: ""
+      bucket: "qstp-consul"
       # S3 region (required for AWS S3)
       region: "us-east-1"
       # S3 credentials (stored in secret when atpReport.enabled)
