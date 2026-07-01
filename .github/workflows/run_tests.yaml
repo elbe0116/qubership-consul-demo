@@ -1,6 +1,23 @@
 name: Run Consul Pipeline
 
+permissions:
+  contents: read
+  packages: read
+  actions: read
+
 on:
+  workflow_dispatch:
+    inputs:
+      service_branch:
+        description: Branch to run tests against
+        required: true
+        type: string
+        default: main
+      wait_for_push:
+        description: Wait for push.yml to complete before tests
+        required: false
+        type: boolean
+        default: false
   pull_request:
     types: [opened, synchronize, reopened]
     branches: [main]
@@ -12,17 +29,25 @@ jobs:
       conclusion: ${{ steps.wait.outputs.conclusion }}
     steps:
       - name: Wait for push.yml to complete
+        if: github.event_name != 'workflow_dispatch' || inputs.wait_for_push == true
         uses: netcracker/qubership-workflow-hub/actions/wait-for-workflow@3e428f45132119ce49d90f3770a45d4fe1d1078d  #v2.0.4
         id: wait
         with:
           workflow: push.yml
           token: ${{ secrets.GITHUB_TOKEN }}
           poll-interval: 20
+      - name: Skip push.yml wait for manual run
+        if: github.event_name == 'workflow_dispatch' && inputs.wait_for_push != true
+        run: echo "Skipping push.yml wait for manual run"
   Consul-Pipeline:
     needs: Wait-for-images
     uses: Netcracker/qubership-test-pipelines/.github/workflows/consul.yaml@d035050ec322700c3df9a7ec62efc0220abe4243  #v1.1.0
     with:
-      service_branch: '${{ github.head_ref || github.ref_name }}'
+      repository_name: ${{ github.repository }}
+      service_branch: >-
+        ${{ github.event_name == 'workflow_dispatch'
+            && github.event.inputs.service_branch
+            || (github.head_ref || github.ref_name) }}
       versions_file: '.github/versions.yaml'
       pipeline_branch: 'd035050ec322700c3df9a7ec62efc0220abe4243' #this value must match the value after '@' in 'uses'
     secrets:
