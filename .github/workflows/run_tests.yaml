@@ -20,7 +20,7 @@ on:
         description: Wait for dev_build.yml to complete before tests
         required: false
         type: boolean
-        default: false
+        default: true
   pull_request:
     types: [opened, synchronize, reopened]
     branches: [main]
