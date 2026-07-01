@@ -8,11 +8,6 @@ permissions:
 on:
   workflow_dispatch:
     inputs:
-      service_branch:
-        description: Branch to run tests against
-        required: true
-        type: string
-        default: main
       scope:
         description: Test scope
         required: false
@@ -68,10 +63,7 @@ jobs:
     uses: Netcracker/qubership-test-pipelines/.github/workflows/consul.yaml@0317a7311f0fdd1e6d492fb3a75d722835851b15 #v1.6.1
     with:
       repository_name: ${{ github.repository }}
-      service_branch: >-
-        ${{ github.event_name == 'workflow_dispatch'
-            && github.event.inputs.service_branch
-            || (github.head_ref || github.ref_name) }}
+      service_branch: '${{ github.head_ref || github.ref_name }}'
       scope: >-
         ${{ github.event_name == 'workflow_dispatch'
             && github.event.inputs.scope
