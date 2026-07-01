@@ -1,4 +1,4 @@
-FROM ghcr.io/netcracker/qubership-docker-integration-tests:main
+FROM ghcr.io/elbe0116/qubership-docker-integration-tests:fix-atp-integration-secrets
 
 # Switch to root for installation of dependencies and packages
 # Required for AWS EKS deployments and S3 integration scripts
