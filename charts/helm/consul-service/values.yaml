@@ -2411,7 +2411,7 @@ integrationTests:
 
   # ATP report upload (S3 credentials under atpReport.atpStorage)
   atpReport:
-    enabled: true
+    enabled: false
     atpStorage:
       # S3 provider type: aws (for real AWS S3), minio, s3 (for S3-compatible with custom endpoint)
       provider: "aws"
