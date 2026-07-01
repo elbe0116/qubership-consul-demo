@@ -8,11 +8,6 @@ permissions:
 on:
   workflow_dispatch:
     inputs:
-      service_branch:
-        description: Branch to run tests against
-        required: true
-        type: string
-        default: main
       wait_for_push:
         description: Wait for push.yml to complete before tests
         required: false
@@ -44,10 +39,7 @@ jobs:
     uses: Netcracker/qubership-test-pipelines/.github/workflows/consul.yaml@d035050ec322700c3df9a7ec62efc0220abe4243  #v1.1.0
     with:
       repository_name: ${{ github.repository }}
-      service_branch: >-
-        ${{ github.event_name == 'workflow_dispatch'
-            && github.event.inputs.service_branch
-            || (github.head_ref || github.ref_name) }}
+      service_branch: '${{ github.head_ref || github.ref_name }}'
       versions_file: '.github/versions.yaml'
       pipeline_branch: 'd035050ec322700c3df9a7ec62efc0220abe4243' #this value must match the value after '@' in 'uses'
     secrets:
